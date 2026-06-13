@@ -257,8 +257,8 @@ export const followUser = async (currentUser, targetUserId, targetUserData) => {
   const followingRef = doc(db, 'users', currentUser.uid, 'following', targetUserId);
   batch.set(followingRef, {
     uid: targetUserId,
-    username: targetUserData.username,
-    displayName: targetUserData.displayName,
+    username: targetUserData.username || '',
+    displayName: targetUserData.displayName || '',
     photoURL: targetUserData.photoURL || null,
     followedAt: serverTimestamp(),
   });
