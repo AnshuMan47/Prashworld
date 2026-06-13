@@ -187,7 +187,7 @@
 /* ---- Comment Form ---- */
 .post-detail__comment-form {
   position: fixed;
-  bottom: 0;
+  bottom: var(--bottomnav-height, 60px);
   left: 0;
   right: 0;
   background: var(--surface);
@@ -203,6 +203,7 @@
 @media (min-width: 1024px) {
   .post-detail__comment-form {
     left: var(--sidebar-width);
+    bottom: 0;
   }
 }
 
