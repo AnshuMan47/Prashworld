@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Image, MapPin, X, Loader } from 'lucide-react';
+import { ArrowLeft, Image, Camera, MapPin, X, Loader } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { createPost } from '../services/firestore';
@@ -13,6 +13,7 @@ const CreatePost = () => {
   const { user, userProfile } = useAuth();
   const toast = useToast();
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   const [images, setImages] = useState([]);
   const [previews, setPreviews] = useState([]);
@@ -101,14 +102,23 @@ const CreatePost = () => {
       <div className="create-page__content page">
         {/* Image Upload */}
         {previews.length === 0 ? (
-          <button
-            className="create-page__upload-area"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Image size={40} strokeWidth={1.5} className="create-page__upload-icon" />
-            <span className="create-page__upload-text">Add nature photographs</span>
-            <span className="create-page__upload-hint">Up to {MAX_IMAGES_PER_POST} images • JPEG, PNG, WebP</span>
-          </button>
+          <div className="create-page__upload-options">
+            <button
+              className="create-page__upload-area"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Image size={40} strokeWidth={1.5} className="create-page__upload-icon" />
+              <span className="create-page__upload-text">Add nature photographs</span>
+              <span className="create-page__upload-hint">Up to {MAX_IMAGES_PER_POST} images • Gallery</span>
+            </button>
+            <button
+              className="create-page__camera-btn"
+              onClick={() => cameraInputRef.current?.click()}
+            >
+              <Camera size={20} strokeWidth={1.5} />
+              <span>Take a Photo</span>
+            </button>
+          </div>
         ) : (
           <div className="create-page__previews">
             {previews.map((src, i) => (
@@ -142,6 +152,15 @@ const CreatePost = () => {
           onChange={handleImageSelect}
           style={{ display: 'none' }}
           id="image-upload-input"
+        />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleImageSelect}
+          style={{ display: 'none' }}
+          id="camera-upload-input"
         />
 
         {/* Caption */}

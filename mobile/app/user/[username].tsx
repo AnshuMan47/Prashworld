@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, FlatList, Image, StyleSheet,
-  ActivityIndicator, Share, Dimensions,
+  ActivityIndicator, Share, Dimensions, Modal,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Share2, Grid3X3, MapPin } from 'lucide-react-native';
+import { ArrowLeft, Share2, Grid3X3, MapPin, X } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getUserByUsername, getUserPosts, checkIsFollowing, followUser, unfollowUser } from '../../services/firestore';
+import { getUserByUsername, getUserPosts, checkIsFollowing, followUser, unfollowUser, getFollowers, getFollowing } from '../../services/firestore';
 import Avatar from '../../components/Avatar';
 import { formatCount } from '../../utils/formatters';
 import { colors, spacing, radius, fontSize, fontWeight } from '../../utils/theme';
@@ -27,6 +27,11 @@ export default function UserProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState('followers');
+  const [listData, setListData] = useState([]);
+  const [listLoading, setListLoading] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -68,6 +73,22 @@ export default function UserProfileScreen() {
     setFollowLoading(false);
   };
 
+  const openListModal = async (type) => {
+    setModalType(type);
+    setShowModal(true);
+    setListLoading(true);
+    try {
+      const data = type === 'followers' 
+        ? await getFollowers(profile.uid || profile.id)
+        : await getFollowing(profile.uid || profile.id);
+      setListData(data);
+    } catch {
+      toast.error(`Failed to load ${type}`);
+    } finally {
+      setListLoading(false);
+    }
+  };
+
   const handleShare = async () => {
     try { await Share.share({ message: `Check out ${profile?.displayName} on Prashworld!` }); } catch {}
   };
@@ -86,14 +107,14 @@ export default function UserProfileScreen() {
             <Text style={styles.statVal}>{formatCount(profile.postCount || 0)}</Text>
             <Text style={styles.statLabel}>posts</Text>
           </View>
-          <View style={styles.stat}>
+          <TouchableOpacity style={styles.stat} onPress={() => openListModal('followers')}>
             <Text style={styles.statVal}>{formatCount(profile.followerCount || 0)}</Text>
             <Text style={styles.statLabel}>followers</Text>
-          </View>
-          <View style={styles.stat}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.stat} onPress={() => openListModal('following')}>
             <Text style={styles.statVal}>{formatCount(profile.followingCount || 0)}</Text>
             <Text style={styles.statLabel}>following</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
       <View style={styles.bio}>
@@ -153,6 +174,43 @@ export default function UserProfileScreen() {
         ListEmptyComponent={<Text style={styles.empty}>No posts yet</Text>}
         showsVerticalScrollIndicator={false}
       />
+
+      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { marginTop: insets.top + 50 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{modalType === 'followers' ? 'Followers' : 'Following'}</Text>
+              <TouchableOpacity onPress={() => setShowModal(false)}>
+                <X size={24} color={colors.neutral[900]} />
+              </TouchableOpacity>
+            </View>
+            {listLoading ? (
+              <ActivityIndicator style={styles.modalLoader} size="large" color={colors.primary[500]} />
+            ) : (
+              <FlatList
+                data={listData}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity 
+                    style={styles.modalUser}
+                    onPress={() => {
+                      setShowModal(false);
+                      router.push(`/user/${item.username || item.id}`);
+                    }}
+                  >
+                    <Avatar url={item.photoURL} size={40} name={item.displayName} />
+                    <View style={styles.modalUserInfo}>
+                      <Text style={styles.modalUserName}>{item.displayName}</Text>
+                      <Text style={styles.modalUserUsername}>@{item.username}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={<Text style={styles.empty}>No users found</Text>}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -185,4 +243,13 @@ const styles = StyleSheet.create({
   tabText: { fontSize: fontSize.sm, fontWeight: '500' as const, color: colors.neutral[900] },
   gridImage: { width: TILE_SIZE, height: TILE_SIZE, marginBottom: 2 },
   empty: { textAlign: 'center', fontSize: fontSize.sm, color: colors.neutral[400], paddingVertical: spacing[10] },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalContent: { flex: 1, backgroundColor: '#fff', borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: 'hidden' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing[4], borderBottomWidth: 1, borderBottomColor: colors.neutral[150] },
+  modalTitle: { fontSize: fontSize.md, fontWeight: '700' as const, color: colors.neutral[900] },
+  modalLoader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  modalUser: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[4], borderBottomWidth: 1, borderBottomColor: colors.neutral[50] },
+  modalUserInfo: { flex: 1 },
+  modalUserName: { fontSize: fontSize.sm, fontWeight: '600' as const, color: colors.neutral[900] },
+  modalUserUsername: { fontSize: fontSize.xs, color: colors.neutral[400] },
 });

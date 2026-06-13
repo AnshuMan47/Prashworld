@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Share2, Grid3X3, Settings } from 'lucide-react';
+import { ArrowLeft, MapPin, Share2, Grid3X3, Settings, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { getUserByUsername, getUserById, getUserPosts, checkIsFollowing, followUser, unfollowUser } from '../services/firestore';
+import { getUserByUsername, getUserById, getUserPosts, checkIsFollowing, followUser, unfollowUser, getFollowers, getFollowing } from '../services/firestore';
 import { formatCount, getInitials, getProfileURL } from '../utils/formatters';
 import './Profile.css';
 
@@ -18,6 +18,10 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [listData, setListData] = useState([]);
+  const [listLoading, setListLoading] = useState(false);
   const isOwnProfile = !username || (userProfile && userProfile.username === username);
 
   useEffect(() => {
@@ -61,9 +65,7 @@ const Profile = () => {
   const handleFollow = async () => {
     if (!user || !profile || followLoading) return;
     setFollowLoading(true);
-
     const targetId = profile.uid || profile.id;
-
     try {
       if (isFollowing) {
         await unfollowUser(user.uid, targetId);
@@ -78,11 +80,35 @@ const Profile = () => {
         setIsFollowing(true);
         setProfile((p) => ({ ...p, followerCount: (p.followerCount || 0) + 1 }));
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error('Action failed. Please try again.');
+    }
+    setFollowLoading(false);
+  };
+
+  const loadFollowers = async () => {
+    setShowFollowersModal(true);
+    setListLoading(true);
+    try {
+      const data = await getFollowers(profile.uid || profile.id);
+      setListData(data);
+    } catch {
+      toast.error('Failed to load followers');
     } finally {
-      setFollowLoading(false);
+      setListLoading(false);
+    }
+  };
+
+  const loadFollowing = async () => {
+    setShowFollowingModal(true);
+    setListLoading(true);
+    try {
+      const data = await getFollowing(profile.uid || profile.id);
+      setListData(data);
+    } catch {
+      toast.error('Failed to load following');
+    } finally {
+      setListLoading(false);
     }
   };
 
@@ -148,11 +174,11 @@ const Profile = () => {
                 <span className="profile-header__stat-value">{formatCount(profile.postCount || 0)}</span>
                 <span className="profile-header__stat-label">posts</span>
               </div>
-              <div className="profile-header__stat">
+              <div className="profile-header__stat" onClick={loadFollowers} style={{ cursor: 'pointer' }}>
                 <span className="profile-header__stat-value">{formatCount(profile.followerCount || 0)}</span>
                 <span className="profile-header__stat-label">followers</span>
               </div>
-              <div className="profile-header__stat">
+              <div className="profile-header__stat" onClick={loadFollowing} style={{ cursor: 'pointer' }}>
                 <span className="profile-header__stat-value">{formatCount(profile.followingCount || 0)}</span>
                 <span className="profile-header__stat-label">following</span>
               </div>
@@ -270,6 +296,45 @@ const Profile = () => {
           </div>
         )}
       </div>
+
+      {/* Follow Modal */}
+      {(showFollowersModal || showFollowingModal) && (
+        <div className="profile-modal-overlay" onClick={() => { setShowFollowersModal(false); setShowFollowingModal(false); }}>
+          <div className="profile-modal" onClick={e => e.stopPropagation()}>
+            <div className="profile-modal__header">
+              <h3>{showFollowersModal ? 'Followers' : 'Following'}</h3>
+              <button onClick={() => { setShowFollowersModal(false); setShowFollowingModal(false); }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="profile-modal__content">
+              {listLoading ? (
+                <div className="profile-modal__loading"><span className="spinner" /></div>
+              ) : listData.length === 0 ? (
+                <p className="profile-modal__empty">No users found.</p>
+              ) : (
+                listData.map((u) => (
+                  <div key={u.id} className="profile-modal__user" onClick={() => {
+                    setShowFollowersModal(false);
+                    setShowFollowingModal(false);
+                    navigate(`/user/${u.username || u.id}`);
+                  }}>
+                    {u.photoURL ? (
+                      <img src={u.photoURL} alt={u.displayName} className="avatar avatar--sm" />
+                    ) : (
+                      <div className="avatar-placeholder avatar--sm" style={{ fontSize: '12px' }}>{getInitials(u.displayName)}</div>
+                    )}
+                    <div className="profile-modal__user-info">
+                      <span className="profile-modal__user-name">{u.displayName}</span>
+                      <span className="profile-modal__user-username">@{u.username}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

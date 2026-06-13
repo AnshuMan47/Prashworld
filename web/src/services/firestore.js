@@ -306,6 +306,26 @@ export const unfollowUser = async (currentUserId, targetUserId) => {
 };
 
 /**
+ * Get users following a specific user
+ */
+export const getFollowers = async (userId) => {
+  const followersRef = collection(db, 'users', userId, 'followers');
+  const q = query(followersRef, orderBy('followedAt', 'desc'), limit(100));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+/**
+ * Get users a specific user is following
+ */
+export const getFollowing = async (userId) => {
+  const followingRef = collection(db, 'users', userId, 'following');
+  const q = query(followingRef, orderBy('followedAt', 'desc'), limit(100));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+/**
  * Check if current user follows target user
  */
 export const checkIsFollowing = async (currentUserId, targetUserId) => {
