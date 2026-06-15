@@ -357,15 +357,17 @@ export const getSuggestedUsers = async (currentUserId, maxResults = 5) => {
  */
 export const getOrCreateChat = async (currentUser, targetUser) => {
   const chatsRef = collection(db, 'chats');
+  const currentUserId = currentUser.id || currentUser.uid;
+  const targetUserId = targetUser.id || targetUser.uid;
   
   // Check if chat exists where both users are participants
   // We can query array-contains for one user, and filter in memory for the other
-  const q = query(chatsRef, where('participants', 'array-contains', currentUser.uid));
+  const q = query(chatsRef, where('participants', 'array-contains', currentUserId));
   const snapshot = await getDocs(q);
   
   const existingChat = snapshot.docs.find((doc) => {
     const data = doc.data();
-    return data.participants.includes(targetUser.id || targetUser.uid);
+    return data.participants.includes(targetUserId);
   });
 
   if (existingChat) {
@@ -374,14 +376,14 @@ export const getOrCreateChat = async (currentUser, targetUser) => {
 
   // Create new chat
   const newChat = {
-    participants: [currentUser.uid, targetUser.id || targetUser.uid],
+    participants: [currentUserId, targetUserId],
     participantDetails: {
-      [currentUser.uid]: {
+      [currentUserId]: {
         displayName: currentUser.displayName || '',
         photoURL: currentUser.photoURL || null,
         username: currentUser.username || ''
       },
-      [targetUser.id || targetUser.uid]: {
+      [targetUserId]: {
         displayName: targetUser.displayName || '',
         photoURL: targetUser.photoURL || null,
         username: targetUser.username || ''
